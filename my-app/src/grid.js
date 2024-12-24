@@ -198,10 +198,9 @@ const Grid = () => {
     }, [messages]);
 
     const handleReset = () => {
-        fetch('http://98.70.50.35:9999/state/reset', {
+        fetch('http://98.70.50.35:9999/reset', {
             method: 'POST',
         })
-        .then(response => response.json())
         .then(data => {
             console.log("reset successful", data);
             window.location.reload();
