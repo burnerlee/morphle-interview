@@ -13,6 +13,7 @@ def init_state():
     initial_grid = [[0 for _ in range(60)] for _ in range(20)]
     initial_grid[10][30] = 1
     state["grid"] = initial_grid
+    return state
 
 @app.route('/')
 def index():
@@ -35,8 +36,8 @@ def set_state():
 @app.route('/reset', methods=['POST'])
 def reset():
     global state
-    init_state()
-    return state
+    state = init_state()
+    return "reset successful"
 
 if __name__ == '__main__':
     init_state()
