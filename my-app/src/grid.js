@@ -3,8 +3,8 @@ import { useState, useEffect, useRef } from 'react';
 const GRID_WIDTH = 600
 const GRID_HEIGHT = 200
 
-const BOX_SIZE = 10
-const STEP_SIZE = 10
+// const BOX_SIZE = 10
+// const STEP_SIZE = 10
 
 // defining the grid state
 // for now fixing the grid size to 60 X 20
@@ -14,11 +14,14 @@ const STEP_SIZE = 10
 // 2: green box 
 // 3: red box
 
-const IDLE_THRESHOLD = 1000;
+// idle threshold is the time after which the current position of the cursor is taken into account
+// this is to ensure that the cursor is idle for some time before taking a picture
+const IDLE_THRESHOLD = 300;
+const BACKEND_URL = "http://localhost:9999"
 
 const commitGridStateToBackend = (gridState) => {
     try{
-        fetch('http://98.70.50.35:9999/state', {
+        fetch(`${BACKEND_URL}/state`, {
             method: 'POST',
             body: JSON.stringify(gridState),
             headers: {
@@ -30,23 +33,56 @@ const commitGridStateToBackend = (gridState) => {
     }
 }
 
+const handleReset = () => {
+    fetch(`${BACKEND_URL}/reset`, {
+        method: 'POST',
+    })
+    .then(data => {
+        console.log("reset successful", data);
+        window.location.reload();
+    });
+}
+
 const Grid = () => {
 
     const [messages, setMessages] = useState([]);
     const [cursor, setCursor] = useState([10,30]);
     const cursorRef = useRef(cursor);
     const [timer, setTimer] = useState(null);
-
     const [gridPrev, setGridPrev] = useState({
         grid: Array.from({length: 20}, () => Array(60).fill(-1)),
     });
+    const [movements, setMovements] = useState([]);
+    const movementsRef = useRef(movements);
+    const [locked, setLocked] = useState(false);
+    const [gridState, setGridState] = useState({});
 
+    // fetch the grid state from the backend
+    // also add the event listener for the keydown
+    useEffect(() => {
+        window.addEventListener('keydown', handleKeyDown);
+        // make an api call to get the grid state
+        fetch(`${BACKEND_URL}/state`)
+        .then(response => response.json())
+        .then(data => {
+            setGridState(data);
+        });
+    }, []);
+
+    // debounce function takes in a function and a timeout
+    // if debounce is called again within the timeout, the timeout is reset and function is not called
+    // if debounce is not called within the timeout, the function is called
     function debounce(func, timeout = 300){
         return (...args) => {
           clearTimeout(timer);
           setTimer(setTimeout(() => { func.apply(this, args); }, timeout));
         };
-      }
+    }
+
+    // handle the keydown event
+    // if checks if the current cursor is in the grid
+    // if it is, it adds the movement to the movements array
+    // if it is not, it does nothing
     const handleKeyDown = (event) => {
         const currentCursor = cursorRef.current;
         if (event.key === 'ArrowUp') {
@@ -55,7 +91,7 @@ const Grid = () => {
             }
         }
         else if (event.key === 'ArrowDown') {
-            if(currentCursor[0] < 20){
+            if(currentCursor[0] < 19){
                 setMovements((prevMovements) => ([...prevMovements, [1,0]]));
             }
         }
@@ -65,30 +101,18 @@ const Grid = () => {
             }
         }
         else if (event.key === 'ArrowRight') {
-            if(currentCursor[1] < 60){
+            if(currentCursor[1] < 59){
                 setMovements((prevMovements) => ([...prevMovements, [0,1]]));
             }
         }
     }
 
-    const [movements, setMovements] = useState([]);
-    const movementsRef = useRef(movements);
-    const [locked, setLocked] = useState(false);
-    const [gridState, setGridState] = useState({});
+    // handles the next movement
+    // checks if new position of the cursor is in the grid - this additional check is required because the cursor updates with a lag
+    // and the check within the keydown event is not reliable
 
-    // fetch the grid state from the backend
-    useEffect(() => {
-        window.addEventListener('keydown', handleKeyDown);
-
-        // make an api call to get the grid state
-        fetch('http://98.70.50.35:9999/state')
-        .then(response => response.json())
-        .then(data => {
-            setGridState(data);
-        });
-    }, []);
-
-
+    // when updating the value of the cursor, we also update the grid state
+    // we also update the previous grid state
     const handleNextMovement = () => {
         const [deltaX, deltaY] = movements[0];
         const newCursor = [cursor[0] + deltaX, cursor[1] + deltaY];
@@ -115,9 +139,12 @@ const Grid = () => {
         currentGrid[newCursor[0]][newCursor[1]] = 1;
         setGridState({grid: currentGrid});
 
+        // remove the first movement from the movements array
         setMovements(movements.slice(1));
     }
 
+    // updates the movementsRef with the current movements
+    // if a new movement is added, it calls the handleNextMovement function
     useEffect(() => {
         movementsRef.current = movements;
         if(movements.length === 0){
@@ -129,6 +156,7 @@ const Grid = () => {
         handleNextMovement();
     }, [movements]);
 
+    // when the lock state is updated to false, starts handling the next movement
     useEffect(() => {
         if(!locked){
             if(movements.length > 0){
@@ -137,6 +165,9 @@ const Grid = () => {
         }
     }, [locked]);
 
+    // the main logic for the grid
+    // whenever the cursor is updated, it checks if the cursor is in the grid
+    // then executes the logic for the grid
     useEffect(() => {
         cursorRef.current = cursor;
         if(!cursor || ! gridState || ! gridState.grid){
@@ -152,6 +183,7 @@ const Grid = () => {
             // sleep for 3 seconds
             setLocked(true);
             setMessages((prevMessages) => ([...prevMessages, "Locked: Taking a picture at " + cursor + "..."]));
+            // mimic the process of taking a picture
             await new Promise(resolve => setTimeout(resolve, 3000));
             console.log("movements after unlocking", movements)
             setMessages((prevMessages) => ([...prevMessages, "Unlocked: taking a picture done"]));
@@ -160,13 +192,16 @@ const Grid = () => {
             const currentCursor = cursorRef.current;
             let grid = gridState.grid;
             grid[currentCursor[0]][currentCursor[1]] = 2;
-
             let prevGrid = gridPrev.grid;
             prevGrid[currentCursor[0]][currentCursor[1]] = 2;
             setGridPrev({grid: prevGrid});
             setGridState(prevState => ({...prevState, grid: grid}));
+
+            // commit the grid state to the backend
             commitGridStateToBackend(gridState);
             if(currentMovements.length > 0){
+                // if any movement is made while the picture was being taken, we open the lock and return
+                // then the useffect for the locked state will handle the next movement
                 console.log("not committing red since movements are not empty")
                 setLocked(false)
                 return;
@@ -175,6 +210,7 @@ const Grid = () => {
                 // sleep for 2 seconds
                 setLocked(true);
                 setMessages((prevMessages) => ([...prevMessages, "Locked: Analyzing the picture at " + cursor + "..."]));
+                // mimic the process of analyzing the picture
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 setLocked(false);
                 setMessages((prevMessages) => ([...prevMessages, "Unlocked: Analyzing done"]));
@@ -186,6 +222,8 @@ const Grid = () => {
                 prevGrid[currentCursor[0]][currentCursor[1]] = 3;
                 setGridPrev({grid: prevGrid});
                 setGridState(prevState => ({...prevState, grid: grid}));
+
+                // commit the grid state to the backend
                 commitGridStateToBackend(gridState);
             }, IDLE_THRESHOLD)()
         }, IDLE_THRESHOLD)()
@@ -196,17 +234,6 @@ const Grid = () => {
         const messagesContainer = document.querySelector('.messages-container');
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }, [messages]);
-
-    const handleReset = () => {
-        fetch('http://98.70.50.35:9999/reset', {
-            method: 'POST',
-        })
-        .then(data => {
-            console.log("reset successful", data);
-            window.location.reload();
-        });
-    }
-
 
     return <div className="main-container">
         <div className="grid-container" style={{width: GRID_WIDTH, height: GRID_HEIGHT}}>
