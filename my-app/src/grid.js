@@ -200,10 +200,14 @@ const Grid = () => {
     const handleReset = () => {
         fetch('http://98.70.50.35:9999/state/reset', {
             method: 'POST',
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log("reset successful", data);
+            window.location.reload();
         });
-        // refresh the page
-        window.location.reload();
     }
+
 
     return <div className="main-container">
         <div className="grid-container" style={{width: GRID_WIDTH, height: GRID_HEIGHT}}>
