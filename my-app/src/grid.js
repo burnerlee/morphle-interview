@@ -16,6 +16,20 @@ const STEP_SIZE = 10
 
 const IDLE_THRESHOLD = 1000;
 
+const commitGridStateToBackend = (gridState) => {
+    try{
+        fetch('http://localhost:8080/state', {
+            method: 'POST',
+            body: JSON.stringify(gridState),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+    }catch(error){
+        console.error('Error committing grid state to backend', error);
+    }
+}
+
 const Grid = () => {
 
     const [messages, setMessages] = useState([]);
@@ -92,7 +106,9 @@ const Grid = () => {
         setGridPrev({grid: prevGrid});
         
         if(prevGrid[oldCursor[0]][oldCursor[1]] === -1){
-            currentGrid[oldCursor[0]][oldCursor[1]] = 0;
+            if(currentGrid[oldCursor[0]][oldCursor[1]] === 1){
+                currentGrid[oldCursor[0]][oldCursor[1]] = 0;
+            }
         }else{
             currentGrid[oldCursor[0]][oldCursor[1]] = prevGrid[oldCursor[0]][oldCursor[1]];
         }
@@ -149,6 +165,7 @@ const Grid = () => {
             prevGrid[currentCursor[0]][currentCursor[1]] = 2;
             setGridPrev({grid: prevGrid});
             setGridState(prevState => ({...prevState, grid: grid}));
+            commitGridStateToBackend(gridState);
             if(currentMovements.length > 0){
                 console.log("not committing red since movements are not empty")
                 setLocked(false)
@@ -169,6 +186,7 @@ const Grid = () => {
                 prevGrid[currentCursor[0]][currentCursor[1]] = 3;
                 setGridPrev({grid: prevGrid});
                 setGridState(prevState => ({...prevState, grid: grid}));
+                commitGridStateToBackend(gridState);
             }, IDLE_THRESHOLD)()
         }, IDLE_THRESHOLD)()
     }, [cursor]);
@@ -178,6 +196,14 @@ const Grid = () => {
         const messagesContainer = document.querySelector('.messages-container');
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }, [messages]);
+
+    const handleReset = () => {
+        fetch('http://localhost:8080/reset', {
+            method: 'POST',
+        });
+        // refresh the page
+        window.location.reload();
+    }
 
     return <div className="main-container">
         <div className="grid-container" style={{width: GRID_WIDTH, height: GRID_HEIGHT}}>
@@ -189,6 +215,7 @@ const Grid = () => {
                 </div>
             ))}
         </div>
+            <button onClick={handleReset}>Reset</button>
         <div className="messages-container">
             {messages.map((message, index) => (
                 <div className="message" key={index}>{message}</div>
