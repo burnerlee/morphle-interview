@@ -17,7 +17,9 @@ const GRID_HEIGHT = 200
 // idle threshold is the time after which the current position of the cursor is taken into account
 // this is to ensure that the cursor is idle for some time before taking a picture
 const IDLE_THRESHOLD = 300;
-const BACKEND_URL = "http://localhost:9999"
+
+// fetch from the env variable
+const BACKEND_URL = process.env.BACKEND_URL || "http://98.70.50.35:9999"
 
 const commitGridStateToBackend = (gridState) => {
     try{
