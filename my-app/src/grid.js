@@ -18,7 +18,7 @@ const IDLE_THRESHOLD = 1000;
 
 const commitGridStateToBackend = (gridState) => {
     try{
-        fetch('http://localhost:8080/state', {
+        fetch('http://98.70.50.35:9999/state', {
             method: 'POST',
             body: JSON.stringify(gridState),
             headers: {
@@ -81,7 +81,7 @@ const Grid = () => {
         window.addEventListener('keydown', handleKeyDown);
 
         // make an api call to get the grid state
-        fetch('http://localhost:8080/state')
+        fetch('http://98.70.50.35:9999/state')
         .then(response => response.json())
         .then(data => {
             setGridState(data);
@@ -198,7 +198,7 @@ const Grid = () => {
     }, [messages]);
 
     const handleReset = () => {
-        fetch('http://localhost:8080/reset', {
+        fetch('http://98.70.50.35:9999/state/reset', {
             method: 'POST',
         });
         // refresh the page
