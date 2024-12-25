@@ -72,16 +72,16 @@ const Grid = () => {
     const [movedOnce, setMovedOnce] = useState(false);
 
     const handleReset = () => {
+        setMovements([]);
+        setMovedOnce(false);
+        setLocked(true);
+        // setMessages([]);
         fetch(`${BACKEND_URL}/reset`, {
             method: 'POST',
         })
         .then(data => {
             console.log("reset successful", data);
             window.location.reload();
-            setMovements([]);
-            setMovedOnce(false);
-            setLocked(false);
-            setMessages([]);
         });
     }
     
