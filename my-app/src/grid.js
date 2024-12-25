@@ -68,6 +68,9 @@ const Grid = () => {
                     case "cursor":
                         setCursor(data.cursor);
                         break;
+                    case "reset_ok":
+                        window.location.reload();
+                        break;
                     default:
                         console.log("unknown message type", data);
                 }
@@ -126,6 +129,11 @@ const Grid = () => {
         }
         return cursor[0] === cell[0] && cursor[1] === cell[1];
     }
+
+    const handleReset = () => {
+        socket.emit("reset");
+    }
+
     return <div className="main-container">
         <div className="grid-container" style={{width: GRID_WIDTH, height: GRID_HEIGHT}}>
             {gridState && gridState.grid && gridState.grid.map((row, rowIndex) => (
@@ -140,6 +148,7 @@ const Grid = () => {
                 </div>
             ))}
         </div>
+        <button onClick={handleReset}>Reset</button>
         <div className="messages-container">
             {messages.map((message, index) => (
                 <div className="message" key={index}>{message}</div>

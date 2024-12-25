@@ -19,23 +19,41 @@ global_grid = []
 soft_cursor_x = 10
 soft_cursor_y = 30
 global_cursor = [soft_cursor_x, soft_cursor_y]
-global_cursor_lock = False
+is_resetting = False
 QUEUE_SIZE = 1000
-take_image_queue = queue.Queue(QUEUE_SIZE)
-analyze_image_queue = queue.Queue(QUEUE_SIZE)
 
 keylog_queue = queue.Queue(QUEUE_SIZE)
 
-DEBOUNCE_THRESHOLD = 1
+DEBOUNCE_THRESHOLD = 0.3
 TIME_TAKE_IMAGE = 3
 TIME_ANALYZE_IMAGE = 2
 
 def init_state():
     global global_grid
     global global_cursor
+    global soft_cursor_x
+    global soft_cursor_y
+    global keylog_queue
+    global is_resetting
+
+    is_resetting = True
+    time.sleep(1)
+    while not keylog_queue.empty():
+        keylog_queue.get()
+
     initial_grid = [[0 for _ in range(60)] for _ in range(20)]
     global_grid = initial_grid
-    global_cursor = [10, 30]
+    soft_cursor_x = 10
+    soft_cursor_y = 30
+    global_cursor = [soft_cursor_x, soft_cursor_y]
+    is_resetting = False
+
+@socketio.on("reset")
+def handle_reset():
+    emit("message", {"message": "Restting the machine"})
+    init_state()
+    emit("message", {"message": "Machine reset complete"})
+    emit("message", {"type": "reset_ok"})
 
 @socketio.on("connect")
 def handle_connect():
@@ -124,6 +142,7 @@ def is_cursor_valid(cursor, direction):
 def call_operations_take_image(cursor):
     global global_grid
     global socketio
+    global is_resetting
     x = cursor[0]
     y = cursor[1]
     
@@ -133,7 +152,12 @@ def call_operations_take_image(cursor):
 
     print(f"taking image at {global_cursor}")
     socketio.emit("message", {"type": "message", "message": f"taking image at {global_cursor}"})
-    time.sleep(TIME_TAKE_IMAGE)
+    time_remaining = TIME_TAKE_IMAGE
+    while time_remaining > 0:
+        if is_resetting:
+            return
+        time.sleep(0.1)
+        time_remaining -= 0.1
     global_grid[x][y] = 1
     print(f"took image at {global_cursor}")
     socketio.emit("message", {"type": "message", "message": f"took image at {global_cursor}"})
@@ -145,6 +169,7 @@ def call_operations_take_image(cursor):
 def call_operations_analyze_image(cursor):
     global global_grid
     global socketio
+    global is_resetting
     x = cursor[0]
     y = cursor[1]
     
@@ -153,7 +178,12 @@ def call_operations_analyze_image(cursor):
     
     print(f"analyzing image at {global_cursor}")
     socketio.emit("message", {"type": "message", "message": f"analyzing image at {global_cursor}"})
-    time.sleep(TIME_ANALYZE_IMAGE)
+    time_remaining = TIME_ANALYZE_IMAGE
+    while time_remaining > 0:
+        if is_resetting:
+            return
+        time.sleep(0.1)
+        time_remaining -= 0.1
     global_grid[x][y] = 2
     print(f"analyzed image at {global_cursor}")
     socketio.emit("message", {"type": "message", "message": f"analyzed image at {global_cursor}"})
