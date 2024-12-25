@@ -19,8 +19,8 @@ const GRID_HEIGHT = 200
 // this is to ensure that the cursor is idle for some time before taking a picture
 const IDLE_THRESHOLD = 300;
 
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:9999"
-const SOCKET_URL = process.env.SOCKET_URL || "ws://localhost:9999"
+const BACKEND_URL = process.env.BACKEND_URL || "http://98.70.50.35:9999"
+const SOCKET_URL = process.env.SOCKET_URL || "ws://98.70.50.35:9999"
 const socket = io(SOCKET_URL);
 
 const Grid = () => {
