@@ -99,7 +99,7 @@ const Grid = () => {
         fetch(`${BACKEND_URL}/state`)
         .then(response => {
             if(response.status === 429){
-                setMessages((prevMessages) => ([...prevMessages, "Process in progress, retrying..."]));
+                setMessages(() => (["Process in progress, retrying..."]));
                 console.log("Process in progress");
                 // sleep for 1 second
                 setTimeout(() => {
