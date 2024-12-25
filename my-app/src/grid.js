@@ -18,7 +18,6 @@ const GRID_HEIGHT = 200
 // this is to ensure that the cursor is idle for some time before taking a picture
 const IDLE_THRESHOLD = 300;
 
-// fetch from the env variable
 const BACKEND_URL = process.env.BACKEND_URL || "http://98.70.50.35:9999"
 
 const commitGridStateToBackend = (gridState) => {
@@ -45,11 +44,34 @@ const handleReset = () => {
     });
 }
 
+const takeImage = async (cursorPosition) => {
+    const response = await fetch(`${BACKEND_URL}/take_image`, {
+        method: 'POST',
+        body: JSON.stringify({cursor: cursorPosition}),
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
+    return response.json();
+}
+
+const analyzeImage = async (cursorPosition) => {
+    const response = await fetch(`${BACKEND_URL}/analyze_image`, {
+        method: 'POST',
+        body: JSON.stringify({cursor: cursorPosition}),
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
+    return response.json();
+}
+
 const Grid = () => {
 
     const [messages, setMessages] = useState([]);
     const [cursor, setCursor] = useState([10,30]);
     const cursorRef = useRef(cursor);
+    const gridRef = useRef(null);
     const [timer, setTimer] = useState(null);
     const [gridPrev, setGridPrev] = useState({
         grid: Array.from({length: 20}, () => Array(60).fill(-1)),
@@ -59,6 +81,7 @@ const Grid = () => {
     const [locked, setLocked] = useState(false);
     const [gridState, setGridState] = useState({});
 
+
     // fetch the grid state from the backend
     // also add the event listener for the keydown
     useEffect(() => {
@@ -67,6 +90,7 @@ const Grid = () => {
         fetch(`${BACKEND_URL}/state`)
         .then(response => response.json())
         .then(data => {
+            setCursor(data.cursor);
             setGridState(data);
         });
     }, []);
@@ -122,24 +146,24 @@ const Grid = () => {
             setMovements(movements.slice(1));
             return;
         }
-        const oldCursor = cursor;
+        // const oldCursor = cursor;
         setCursor(newCursor);
 
-        const prevGrid = gridPrev.grid;
-        const currentGrid = gridState.grid;
+        // const prevGrid = gridPrev.grid;
+        // const currentGrid = gridState.grid;
         
-        prevGrid[newCursor[0]][newCursor[1]] = currentGrid[newCursor[0]][newCursor[1]];
-        setGridPrev({grid: prevGrid});
+        // prevGrid[newCursor[0]][newCursor[1]] = currentGrid[newCursor[0]][newCursor[1]];
+        // setGridPrev({grid: prevGrid});
         
-        if(prevGrid[oldCursor[0]][oldCursor[1]] === -1){
-            if(currentGrid[oldCursor[0]][oldCursor[1]] === 1){
-                currentGrid[oldCursor[0]][oldCursor[1]] = 0;
-            }
-        }else{
-            currentGrid[oldCursor[0]][oldCursor[1]] = prevGrid[oldCursor[0]][oldCursor[1]];
-        }
-        currentGrid[newCursor[0]][newCursor[1]] = 1;
-        setGridState({grid: currentGrid});
+        // if(prevGrid[oldCursor[0]][oldCursor[1]] === -1){
+        //     if(currentGrid[oldCursor[0]][oldCursor[1]] === 1){
+        //         currentGrid[oldCursor[0]][oldCursor[1]] = 0;
+        //     }
+        // }else{
+        //     currentGrid[oldCursor[0]][oldCursor[1]] = prevGrid[oldCursor[0]][oldCursor[1]];
+        // }
+        // currentGrid[newCursor[0]][newCursor[1]] = 1;
+        // setGridState({grid: currentGrid});
 
         // remove the first movement from the movements array
         setMovements(movements.slice(1));
@@ -172,35 +196,39 @@ const Grid = () => {
     // then executes the logic for the grid
     useEffect(() => {
         cursorRef.current = cursor;
+        console.log("cursor is", cursor)
         if(!cursor || ! gridState || ! gridState.grid){
             return;
         }
         if(locked){
             return;
         }
-        if(gridState && gridState.grid && gridState.grid[cursor[0]][cursor[1]] === 3){
-            return;
-        }
+        console.log("moving ahead")
         debounce(async ()=>{
             // sleep for 3 seconds
+            const currentGridState = gridRef.current;
+            if(currentGridState && currentGridState.grid && currentGridState.grid[cursor[0]][cursor[1]] === 3){
+                return;
+            }
             setLocked(true);
             setMessages((prevMessages) => ([...prevMessages, "Locked: Taking a picture at " + cursor + "..."]));
             // mimic the process of taking a picture
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            try{
+                const newGridState = await takeImage(cursorRef.current);
+                console.log("newGridState from backend", newGridState)
+                setMessages((prevMessages) => ([...prevMessages, "Unlocked: taking a picture done"]));
+                setGridPrev(newGridState);
+                setGridState(newGridState);
+            }catch(error){
+                console.error("Error taking the picture", error);
+                setLocked(false);
+                return
+            }
             console.log("movements after unlocking", movements)
-            setMessages((prevMessages) => ([...prevMessages, "Unlocked: taking a picture done"]));
             // how to find the latest movement state
             const currentMovements = movementsRef.current;
-            const currentCursor = cursorRef.current;
-            let grid = gridState.grid;
-            grid[currentCursor[0]][currentCursor[1]] = 2;
-            let prevGrid = gridPrev.grid;
-            prevGrid[currentCursor[0]][currentCursor[1]] = 2;
-            setGridPrev({grid: prevGrid});
-            setGridState(prevState => ({...prevState, grid: grid}));
-
             // commit the grid state to the backend
-            commitGridStateToBackend(gridState);
+            // commitGridStateToBackend(gridState);
             if(currentMovements.length > 0){
                 // if any movement is made while the picture was being taken, we open the lock and return
                 // then the useffect for the locked state will handle the next movement
@@ -213,23 +241,28 @@ const Grid = () => {
                 setLocked(true);
                 setMessages((prevMessages) => ([...prevMessages, "Locked: Analyzing the picture at " + cursor + "..."]));
                 // mimic the process of analyzing the picture
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                try{
+                    const newGridState = await analyzeImage(cursorRef.current);
+                    console.log("newGridState from backend", newGridState)
+                    setMessages((prevMessages) => ([...prevMessages, "Unlocked: Analyzing done"]));
+                    setGridPrev(newGridState);
+                    setGridState(newGridState);
+                }catch(error){
+                    console.error("Error analyzing the picture", error);
+                }
                 setLocked(false);
-                setMessages((prevMessages) => ([...prevMessages, "Unlocked: Analyzing done"]));
-                let grid = gridState.grid;
-                const currentCursor = cursorRef.current;
-                grid[currentCursor[0]][currentCursor[1]] = 3;
-
-                let prevGrid = gridPrev.grid;
-                prevGrid[currentCursor[0]][currentCursor[1]] = 3;
-                setGridPrev({grid: prevGrid});
-                setGridState(prevState => ({...prevState, grid: grid}));
-
+                
                 // commit the grid state to the backend
-                commitGridStateToBackend(gridState);
+                // commitGridStateToBackend(gridState);
             }, IDLE_THRESHOLD)()
         }, IDLE_THRESHOLD)()
     }, [cursor]);
+
+    useEffect(() => {
+        if(gridState && gridState.grid){
+            gridRef.current = gridState;
+        }
+    }, [gridState]);
 
     // always scroll to the bottom of the messages container
     useEffect(() => {
@@ -237,12 +270,19 @@ const Grid = () => {
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }, [messages]);
 
+    const isCursorInCell = (cursor, cell) => {
+        return cursor[0] === cell[0] && cursor[1] === cell[1];
+    }
     return <div className="main-container">
         <div className="grid-container" style={{width: GRID_WIDTH, height: GRID_HEIGHT}}>
             {gridState && gridState.grid && gridState.grid.map((row, rowIndex) => (
                 <div className="grid-row" key={rowIndex}>
                     {row.map((cell, cellIndex) => (
-                        <div className="grid-cell" key={cellIndex} style={{backgroundColor: cell === 1 ? 'black' : cell === 2 ? 'green' : cell === 3 ? 'red' : 'white'}}></div>
+                        <div 
+                            className={`grid-cell ${isCursorInCell(cursor, [rowIndex, cellIndex]) ? 'border-black' : ''}`}
+                            key={cellIndex} 
+                            style={{backgroundColor: cell === 2 ? 'green' : cell === 3 ? 'red' : 'white'}}
+                        ></div>
                     ))}
                 </div>
             ))}

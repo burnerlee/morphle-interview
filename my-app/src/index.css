@@ -25,5 +25,10 @@ code {
 .grid-cell {
   width: 10px;
   height: 10px;
-  border: 0.1px solid black;
+  /* border: 0.1px solid black; */
+}
+
+
+.border-black{
+  box-shadow: inset 0 0 0 2px black;
 }
