@@ -80,7 +80,7 @@ const Grid = () => {
     const movementsRef = useRef(movements);
     const [locked, setLocked] = useState(false);
     const [gridState, setGridState] = useState({});
-    const [firstRequestDone, setFirstRequestDone] = useState(false);
+    const [movedOnce, setMovedOnce] = useState(false);
 
 
     // fetch the grid state from the backend
@@ -148,6 +148,7 @@ const Grid = () => {
             return;
         }
         // const oldCursor = cursor;
+        setMovedOnce(true);
         setCursor(newCursor);
 
         // const prevGrid = gridPrev.grid;
@@ -204,8 +205,7 @@ const Grid = () => {
         if(locked){
             return;
         }
-        if(!firstRequestDone){
-            setFirstRequestDone(true);
+        if(!movedOnce){
             return;
         }
         console.log("moving ahead")
