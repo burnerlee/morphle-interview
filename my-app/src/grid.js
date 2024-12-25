@@ -33,17 +33,6 @@ const commitGridStateToBackend = (gridState) => {
         console.error('Error committing grid state to backend', error);
     }
 }
-
-const handleReset = () => {
-    fetch(`${BACKEND_URL}/reset`, {
-        method: 'POST',
-    })
-    .then(data => {
-        console.log("reset successful", data);
-        window.location.reload();
-    });
-}
-
 const takeImage = async (cursorPosition) => {
     const response = await fetch(`${BACKEND_URL}/take_image`, {
         method: 'POST',
@@ -82,6 +71,20 @@ const Grid = () => {
     const [gridState, setGridState] = useState({});
     const [movedOnce, setMovedOnce] = useState(false);
 
+    const handleReset = () => {
+        fetch(`${BACKEND_URL}/reset`, {
+            method: 'POST',
+        })
+        .then(data => {
+            console.log("reset successful", data);
+            window.location.reload();
+            setMovements([]);
+            setMovedOnce(false);
+            setLocked(false);
+            setMessages([]);
+        });
+    }
+    
 
     // fetch the grid state from the backend
     // also add the event listener for the keydown

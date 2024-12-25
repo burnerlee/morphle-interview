@@ -48,7 +48,7 @@ def reset():
     while lock:
         time.sleep(1)
     state = init_state()
-    return "reset successful"
+    return state
 
 @app.route('/take_image', methods=['POST'])
 def take_image():
