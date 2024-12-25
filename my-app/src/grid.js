@@ -18,42 +18,7 @@ const GRID_HEIGHT = 200
 // this is to ensure that the cursor is idle for some time before taking a picture
 const IDLE_THRESHOLD = 300;
 
-const BACKEND_URL = process.env.BACKEND_URL || "http://98.70.50.35:9999"
-
-const commitGridStateToBackend = (gridState) => {
-    try{
-        fetch(`${BACKEND_URL}/state`, {
-            method: 'POST',
-            body: JSON.stringify(gridState),
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
-    }catch(error){
-        console.error('Error committing grid state to backend', error);
-    }
-}
-const takeImage = async (cursorPosition) => {
-    const response = await fetch(`${BACKEND_URL}/take_image`, {
-        method: 'POST',
-        body: JSON.stringify({cursor: cursorPosition}),
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    });
-    return response.json();
-}
-
-const analyzeImage = async (cursorPosition) => {
-    const response = await fetch(`${BACKEND_URL}/analyze_image`, {
-        method: 'POST',
-        body: JSON.stringify({cursor: cursorPosition}),
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    });
-    return response.json();
-}
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:9999"
 
 const Grid = () => {
 
@@ -73,19 +38,57 @@ const Grid = () => {
     const [resetting, setResetting] = useState(false);
 
     const handleReset = () => {
-        setMovements([]);
-        setMovedOnce(false);
-        setLocked(true);
-        setResetting(true);
+        
         // setMessages([]);
         fetch(`${BACKEND_URL}/reset`, {
             method: 'POST',
         })
         .then(data => {
+            if(data.status === 429){
+                setMessages((prevMessages) => ([...prevMessages, "Process in progress, please try resetting again later"]));
+                return;
+            }
+            setMovements([]);
+            setMovedOnce(false);
+            setLocked(true);
+            setResetting(true);
             console.log("reset successful", data);
             window.location.reload();
         });
     }
+
+    const takeImage = async (cursorPosition) => {
+        const response = await fetch(`${BACKEND_URL}/take_image`, {
+            method: 'POST',
+            body: JSON.stringify({cursor: cursorPosition}),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        if(response.status === 429){
+            console.log("Process in progress");
+            setMessages((prevMessages) => ([...prevMessages, "Process in progress, please try taking a picture again later"]));
+            return gridRef.current;
+        }
+        return response.json();
+    }
+    
+    const analyzeImage = async (cursorPosition) => {
+        const response = await fetch(`${BACKEND_URL}/analyze_image`, {
+            method: 'POST',
+            body: JSON.stringify({cursor: cursorPosition}),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        if(response.status === 429){
+            console.log("Process in progress");
+            setMessages((prevMessages) => ([...prevMessages, "Process in progress, please try analyzing the picture again later"]));
+            return gridRef.current;
+        }
+        return response.json();
+    }
+    
     
 
     // fetch the grid state from the backend
@@ -94,7 +97,16 @@ const Grid = () => {
         window.addEventListener('keydown', handleKeyDown);
         // make an api call to get the grid state
         fetch(`${BACKEND_URL}/state`)
-        .then(response => response.json())
+        .then(response => {
+            if(response.status === 429){
+                setMessages((prevMessages) => ([...prevMessages, "Process in progress, please try again later"]));
+                console.log("Process in progress");
+                return {
+                    grid: Array.from({length: 20}, () => Array(60).fill(0)),
+                };
+            }
+            return response.json();
+        })
         .then(data => {
             setCursor(data.cursor);
             setGridState(data);
@@ -284,6 +296,9 @@ const Grid = () => {
     }, [messages]);
 
     const isCursorInCell = (cursor, cell) => {
+        if(!cursor || !cell){
+            return false;
+        }
         return cursor[0] === cell[0] && cursor[1] === cell[1];
     }
     return <div className="main-container">

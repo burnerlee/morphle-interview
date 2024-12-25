@@ -3,12 +3,16 @@ import sqlite3
 import logging
 from flask_cors import CORS
 import time
+import queue
 
 app = flask.Flask(__name__)
 CORS(app)
 logger = logging.getLogger("my-app-backend")
 state = {}
-lock = False
+
+QUEUE_SIZE = 100
+take_image_queue = queue.Queue(QUEUE_SIZE)
+analyze_image_queue = queue.Queue(QUEUE_SIZE)
 
 def init_state():
     global state
@@ -25,9 +29,8 @@ def index():
 @app.route('/state', methods=['GET'])
 def get_state():
     global state
-    global lock
-    while lock:
-        time.sleep(1)
+    if not take_image_queue.empty() or not analyze_image_queue.empty():
+        return {"message": "Process in progress"}, 429
     logger.info(f"Getting state: {state}")
     return state
 
@@ -44,19 +47,19 @@ def get_state():
 @app.route('/reset', methods=['POST'])
 def reset():
     global state
-    global lock
-    while lock:
-        time.sleep(1)
-    state = init_state()
+    # check if any task is in progress
+    if not take_image_queue.empty() or not analyze_image_queue.empty():
+        return {"message": "Process in progress"}, 429
+    init_state()
     return state
 
 @app.route('/take_image', methods=['POST'])
 def take_image():
     global state
-    global lock
-    while lock:
-        time.sleep(1)
-    lock = True
+    try:
+        take_image_queue.put("take_image", block=False)
+    except queue.Full:
+        return {"message": "Process in progress"}, 429
     data = flask.request.json
     cursor = data["cursor"]
     x = cursor[0]
@@ -64,17 +67,16 @@ def take_image():
     time.sleep(3)
     state["grid"][x][y] = 2
     state["cursor"] = cursor
-    print("image taken")
-    lock = False
+    take_image_queue.get()
     return state
 
 @app.route('/analyze_image', methods=['POST'])
 def analyze_image():
     global state
-    global lock
-    while lock:
-        time.sleep(1)
-    lock = True
+    try:
+        analyze_image_queue.put("analyze_image", block=False)
+    except queue.Full:
+        return {"message": "Process in progress"}, 429
     data = flask.request.json
     cursor = data["cursor"]
     x = cursor[0]
@@ -82,11 +84,10 @@ def analyze_image():
     time.sleep(2)
     state["grid"][x][y] = 3
     state["cursor"] = cursor
-    print("image analyzed")
-    lock = False
+    analyze_image_queue.get()
     return state
 
 if __name__ == '__main__':
     init_state()
-    app.run(debug=True, host='0.0.0.0', port=9999)
+    app.run(debug=True, host='0.0.0.0', port=9999, threaded=True)
 
