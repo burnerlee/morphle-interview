@@ -70,11 +70,13 @@ const Grid = () => {
     const [locked, setLocked] = useState(false);
     const [gridState, setGridState] = useState({});
     const [movedOnce, setMovedOnce] = useState(false);
+    const [resetting, setResetting] = useState(false);
 
     const handleReset = () => {
         setMovements([]);
         setMovedOnce(false);
         setLocked(true);
+        setResetting(true);
         // setMessages([]);
         fetch(`${BACKEND_URL}/reset`, {
             method: 'POST',
@@ -215,7 +217,7 @@ const Grid = () => {
         debounce(async ()=>{
             // sleep for 3 seconds
             const currentGridState = gridRef.current;
-            if(currentGridState && currentGridState.grid && currentGridState.grid[cursor[0]][cursor[1]] === 3){
+            if((currentGridState && currentGridState.grid && currentGridState.grid[cursor[0]][cursor[1]] === 3) || resetting){
                 return;
             }
             setLocked(true);
@@ -231,6 +233,9 @@ const Grid = () => {
                 console.error("Error taking the picture", error);
                 setLocked(false);
                 return
+            }
+            if(resetting){
+                return;
             }
             console.log("movements after unlocking", movements)
             // how to find the latest movement state
