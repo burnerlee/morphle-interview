@@ -61,7 +61,7 @@ def take_image():
     cursor = data["cursor"]
     x = cursor[0]
     y = cursor[1]
-    time.sleep(5)
+    time.sleep(3)
     state["grid"][x][y] = 2
     state["cursor"] = cursor
     print("image taken")

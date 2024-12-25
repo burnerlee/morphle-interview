@@ -80,6 +80,7 @@ const Grid = () => {
     const movementsRef = useRef(movements);
     const [locked, setLocked] = useState(false);
     const [gridState, setGridState] = useState({});
+    const [firstRequestDone, setFirstRequestDone] = useState(false);
 
 
     // fetch the grid state from the backend
@@ -201,6 +202,10 @@ const Grid = () => {
             return;
         }
         if(locked){
+            return;
+        }
+        if(!firstRequestDone){
+            setFirstRequestDone(true);
             return;
         }
         console.log("moving ahead")
